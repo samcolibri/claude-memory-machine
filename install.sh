@@ -206,9 +206,15 @@ echo -e "  ${GREEN}Memory architecture ready.${NC}"
 # ============================================================================
 echo -e "${BLUE}[4/6]${NC} Installing global CLAUDE.md (the brain)..."
 
-# Generate the CLAUDE.md with the correct memory path
+# Create scripts directory
+SCRIPTS_DIR="$CLAUDE_DIR/scripts"
+mkdir -p "$SCRIPTS_DIR"
+
+# Generate the CLAUDE.md with the correct paths
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-sed "s|{{MEMORY_DIR}}|${MEMORY_DIR}|g" "$SCRIPT_DIR/setup/CLAUDE.md.template" > "$CLAUDE_DIR/CLAUDE.md"
+sed -e "s|{{MEMORY_DIR}}|${MEMORY_DIR}|g" \
+    -e "s|{{SCRIPTS_DIR}}|${SCRIPTS_DIR}|g" \
+    "$SCRIPT_DIR/setup/CLAUDE.md.template" > "$CLAUDE_DIR/CLAUDE.md"
 
 echo -e "  ${GREEN}Global CLAUDE.md installed at ~/.claude/CLAUDE.md${NC}"
 echo -e "  ${GREEN}This will load in EVERY Claude Code session, in any directory.${NC}"
@@ -233,14 +239,27 @@ if [ "$WITH_MEM0" = true ]; then
         MEM0_USER_ID="$(whoami)-claude-memory"
     fi
 
-    # Create the hook script
+    # Create the hook scripts
     HOOK_DIR="$CLAUDE_DIR/hooks"
     mkdir -p "$HOOK_DIR"
 
+    # Write hook (pushes actions to Mem0)
     sed -e "s|{{MEM0_API_KEY}}|${MEM0_API_KEY}|g" \
         -e "s|{{MEM0_USER_ID}}|${MEM0_USER_ID}|g" \
         "$SCRIPT_DIR/setup/hooks/mem0_hook.sh" > "$HOOK_DIR/mem0_hook.sh"
     chmod +x "$HOOK_DIR/mem0_hook.sh"
+
+    # Recall script (reads from Mem0 at session start)
+    cat > "$SCRIPTS_DIR/mem0_recall.sh" << 'RECALLEOF'
+#!/bin/bash
+set -euo pipefail
+RECALLEOF
+    # Inject credentials into recall script
+    sed -e "s|{{MEM0_API_KEY}}|${MEM0_API_KEY}|g" \
+        -e "s|{{MEM0_USER_ID}}|${MEM0_USER_ID}|g" \
+        "$SCRIPT_DIR/setup/hooks/mem0_recall.sh" > "$SCRIPTS_DIR/mem0_recall.sh"
+    chmod +x "$SCRIPTS_DIR/mem0_recall.sh"
+    echo -e "  ${GREEN}Mem0 recall script installed (reads from 1000+ cloud memories)${NC}"
 
     # Create or update settings.json
     if [ -f "$CLAUDE_DIR/settings.json" ]; then

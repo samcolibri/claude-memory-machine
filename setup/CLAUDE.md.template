@@ -1,83 +1,80 @@
 # Global Instructions — Claude Memory Machine
 
-## Session Startup Protocol (MANDATORY)
+## CRITICAL: Auto-Welcome Protocol (RUNS FIRST, EVERY SESSION)
 
-At the start of EVERY new conversation, before responding to the user's first message:
+On the VERY FIRST message of every conversation — regardless of what the user says or asks — you MUST do ALL of the following BEFORE responding to their actual request:
 
-1. **Read the memory index**: Read `{{MEMORY_DIR}}/MEMORY.md`
-2. **Read the last session summary**: Read `{{MEMORY_DIR}}/episodic_last_session.md` (if it exists)
-3. **Read relevant memory files**: Based on the user's first message, read any memory files from the index that are relevant to the current task
-4. **Silently integrate**: Do NOT announce that you're reading memory. Just use the context naturally, like a colleague who remembers past conversations.
+### Step 1: Load Local Memory
+1. Read `{{MEMORY_DIR}}/MEMORY.md` (the index of all memories)
+2. Read `{{MEMORY_DIR}}/episodic_last_session.md` (what happened last time)
+3. Read any memory files from the index that are relevant to the user's message
+
+### Step 2: Load Mem0 Cloud Memory (if configured)
+If the Mem0 recall script exists, run it to pull relevant context:
+```
+{{SCRIPTS_DIR}}/mem0_recall.sh "<user's topic or 'current projects and recent activity'>" 10
+```
+
+### Step 3: Welcome the User
+After loading memory, START your response with a brief, natural welcome that shows you remember them:
+- Reference what happened last session
+- Mention relevant context from their memories
+- Keep it natural — like a colleague who remembers past conversations
+
+Do NOT say "I'm reading your memories" or "Let me load context." Just demonstrate recall naturally, then address their request.
+
+### Step 4: Then Answer Their Question
+After the welcome, proceed to address whatever they actually asked.
 
 ## Memory Architecture (MemMachine-Inspired, 3-Tier)
 
-This system implements the ground-truth-preserving architecture from the MemMachine paper (Wang et al., 2026).
-
 ### Tier 1: Short-Term Memory (STM)
-- Current conversation context (handled by your context window)
-- Session summary written at end of each session to `episodic_last_session.md`
-- Acts as a bridge between sessions — the most recent context always available
+- Current conversation context (your context window)
+- Session summary in `episodic_last_session.md` — bridges between sessions
 
-### Tier 2: Episodic Memory (Long-Term)
-- Rolling session summaries in `episodic_sessions.md` (recent sessions)
-- Preserves WHAT happened, WHEN, and in WHAT context — not just extracted facts
-- Ground truth preservation: raw episodic records alongside distilled summaries
+### Tier 2: Episodic Memory (Long-Term Ground Truth)
+- **Mem0 Cloud** (optional): Raw memories stored via API — the ground truth store
+  - Search: `{{SCRIPTS_DIR}}/mem0_recall.sh "query" 10`
+- **Local rolling log**: `episodic_sessions.md` — session summaries
 
 ### Tier 3: Profile Memory (Semantic)
-- User preferences, role, feedback in memory directory files
-- Structured with frontmatter (name, description, type)
-- Types: user (who they are), feedback (how to behave), project (what's happening), reference (where to find things)
+- Local markdown files in `{{MEMORY_DIR}}/`
+- Types: user (who), feedback (how to behave), project (what's happening), reference (where things are)
 
 ## Memory File Format
 
-All memory files use this frontmatter format:
 ```markdown
 ---
 name: Memory Name
-description: One-line description used for relevance matching
+description: One-line description for relevance matching
 type: user|feedback|project|reference
 ---
-Content here. For feedback/project types, structure as:
-Rule or fact statement.
-**Why:** The motivation behind this.
-**How to apply:** When and where to use this.
+Content. For feedback/project types:
+Statement.
+**Why:** Motivation.
+**How to apply:** When/where this kicks in.
 ```
 
 ## Contextualized Retrieval
 
-When recalling information, follow MemMachine's contextualized retrieval principle:
-- When a memory file is relevant, read the FULL file (not just the title from the index)
-- Consider neighboring context: what was happening around that time, what project was active
-- Cross-reference multiple memory files when answering complex questions
-- Don't just retrieve isolated facts — retrieve the conversational context that makes those facts meaningful
+- Read FULL memory files, not just titles from the index
+- Cross-reference multiple files for complex questions
+- Search Mem0 when local files don't have enough context
+- Consider neighboring context around decisions
 
 ## Session End Protocol
 
-Before a session ends (when the user says goodbye, or the conversation naturally concludes):
+Before a session ends:
+1. Write session summary to `{{MEMORY_DIR}}/episodic_last_session.md`
+2. Append one-liner to `{{MEMORY_DIR}}/episodic_sessions.md`
+3. Update `{{MEMORY_DIR}}/MEMORY.md` index if new files were created
 
-1. Write a brief session summary to `{{MEMORY_DIR}}/episodic_last_session.md` with:
-   - Date, directory worked in, key topics discussed
-   - Decisions made, problems solved, open items remaining
-   - Any new context learned about the user
-2. Update `{{MEMORY_DIR}}/MEMORY.md` index if new memory files were created
-3. Append a one-line entry to `{{MEMORY_DIR}}/episodic_sessions.md`
+## Ground Truth Preservation
 
-## Memory Management Rules
-
-- **Save new memories** when you learn something that would be useful in future sessions
-- **Update existing memories** when information changes — don't create duplicates
-- **Never overwrite raw facts with summaries** — preserve ground truth
-- **Keep the MEMORY.md index under 200 lines** — it's a table of contents, not storage
-- **Use the right memory type**: user (who), feedback (how), project (what), reference (where)
-- **Convert relative dates to absolute** when saving (e.g., "next Thursday" → "2026-04-10")
-
-## Ground Truth Preservation Principle
-
-From MemMachine: "How data is recalled matters more than how it is stored, provided storage preserves ground truth."
-- Store episodic details (what the user said, what was decided) not just extracted conclusions
-- When updating memory, preserve the original context alongside the update
-- Episodic session logs are append-only — never delete past entries
+- Never overwrite raw facts with summaries
+- Store episodic details (what was said, decided) not just conclusions
+- Convert relative dates to absolute when saving
+- Episodic logs are append-only
 
 ## Memory Directory
-
-All memory files are stored at: `{{MEMORY_DIR}}/`
+All memory files: `{{MEMORY_DIR}}/`
