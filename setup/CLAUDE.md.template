@@ -1,45 +1,55 @@
-# Global Instructions — Claude Memory Machine
+# Claude Memory Machine v2 — Three-Layer Cognitive Architecture
 
-## CRITICAL: Auto-Welcome Protocol (RUNS FIRST, EVERY SESSION)
+## CRITICAL: Session Startup Protocol (MANDATORY, EVERY SESSION)
 
-On the VERY FIRST message of every conversation — regardless of what the user says or asks — you MUST do ALL of the following BEFORE responding to their actual request:
+On the VERY FIRST message of every conversation, you MUST execute ALL of these steps BEFORE responding.
 
-### Step 1: Load Local Memory
-1. Read `{{MEMORY_DIR}}/MEMORY.md` (the index of all memories)
-2. Read `{{MEMORY_DIR}}/episodic_last_session.md` (what happened last time)
-3. Read any memory files from the index that are relevant to the user's message
-
-### Step 2: Load Mem0 Cloud Memory (if configured)
-If the Mem0 recall script exists, run it to pull relevant context:
+### Step 1: memorymesh — Local Structured Memory (FAST)
+If memorymesh MCP is available, use it to load structured context:
 ```
-{{SCRIPTS_DIR}}/mem0_recall.sh "<user's topic or 'current projects and recent activity'>" 10
+mcp__memorymesh__get_context(query="<relevant to user's message>", limit=10)
+```
+This searches importance-scored, tagged memories via local FTS5 (instant).
+
+### Step 2: Mem0 Cloud — Deep Episodic Memory (if configured)
+If the recall script exists, run it to search the semantic cloud archive:
+```bash
+{{SCRIPTS_DIR}}/mem0_recall.sh "<user's topic or 'current projects'>" 10
 ```
 
-### Step 3: Welcome the User
-After loading memory, START your response with a brief, natural welcome that shows you remember them:
-- Reference what happened last session
-- Mention relevant context from their memories
-- Keep it natural — like a colleague who remembers past conversations
+### Step 3: Local Profile Memory — Curated Context
+1. Read `{{MEMORY_DIR}}/MEMORY.md` (index)
+2. Read `{{MEMORY_DIR}}/episodic_last_session.md` (last session)
+3. Read relevant memory files from the index
 
-Do NOT say "I'm reading your memories" or "Let me load context." Just demonstrate recall naturally, then address their request.
+### Step 4: Synthesize & Welcome
+Start your response with a natural welcome that proves you remember the user.
+Never announce you're loading memory. Just demonstrate recall naturally.
 
-### Step 4: Then Answer Their Question
-After the welcome, proceed to address whatever they actually asked.
+---
 
-## Memory Architecture (MemMachine-Inspired, 3-Tier)
+## Memory Layer Reference
 
-### Tier 1: Short-Term Memory (STM)
-- Current conversation context (your context window)
-- Session summary in `episodic_last_session.md` — bridges between sessions
+### Layer 1: memorymesh MCP (Local, Fast, Structured)
+- SQLite + FTS5 full-text search at `~/.memorymesh/memory.db`
+- Importance-scored (0.0-1.0), tagged, timestamped
+- **Tools:** recall_memory, get_context, remember_memory, memory_stats, forget_memory
+- **Use for:** Project details, architecture, credentials, technical specifics
+- **Save to:** After major decisions, discoveries, important feedback (importance 0.7-1.0)
 
-### Tier 2: Episodic Memory (Long-Term Ground Truth)
-- **Mem0 Cloud** (optional): Raw memories stored via API — the ground truth store
-  - Search: `{{SCRIPTS_DIR}}/mem0_recall.sh "query" 10`
-- **Local rolling log**: `episodic_sessions.md` — session summaries
+### Layer 2: Mem0 Cloud (Deep, Semantic, Massive) — Optional
+- Auto-captured via PostToolUse hook
+- Semantic vector search across months of history
+- **Use for:** Deep history, cross-project patterns, "what happened weeks ago"
+- **Automatic:** PostToolUse hook captures everything, no manual saves
 
-### Tier 3: Profile Memory (Semantic)
-- Local markdown files in `{{MEMORY_DIR}}/`
-- Types: user (who), feedback (how to behave), project (what's happening), reference (where things are)
+### Layer 3: Local Markdown (Curated, Human-Readable)
+- Structured files in `{{MEMORY_DIR}}/`
+- Types: user (who), feedback (how), project (what), reference (where)
+- **Use for:** User profile, behavioral preferences, project context
+- **Save to:** Preferences, corrections, status changes
+
+---
 
 ## Memory File Format
 
@@ -52,29 +62,48 @@ type: user|feedback|project|reference
 Content. For feedback/project types:
 Statement.
 **Why:** Motivation.
-**How to apply:** When/where this kicks in.
+**How to apply:** When/where to use this.
 ```
 
-## Contextualized Retrieval
+---
 
-- Read FULL memory files, not just titles from the index
-- Cross-reference multiple files for complex questions
-- Search Mem0 when local files don't have enough context
-- Consider neighboring context around decisions
+## During-Session Memory Protocol
+
+### Save to memorymesh when:
+- Major decisions (importance: 0.8-1.0)
+- Architecture or technical context (importance: 0.7)
+- Working commands, credentials, API details (importance: 0.9)
+- Stakeholder feedback (importance: 0.8)
+
+### Save to local markdown when:
+- User preferences and corrections (feedback_*.md)
+- Project status changes (project_*.md)
+- External system references (reference_*.md)
+
+### Deep Recall (when initial context isn't enough):
+1. Search memorymesh → recall_memory(query, limit=10)
+2. Search Mem0 → mem0_recall.sh "broader query" 15
+3. Read relevant local files from MEMORY.md
+4. Cross-reference all sources (contextualized retrieval)
+
+---
 
 ## Session End Protocol
 
-Before a session ends:
-1. Write session summary to `{{MEMORY_DIR}}/episodic_last_session.md`
-2. Append one-liner to `{{MEMORY_DIR}}/episodic_sessions.md`
-3. Update `{{MEMORY_DIR}}/MEMORY.md` index if new files were created
+1. Save important learnings to memorymesh with tags and importance
+2. Write session summary to `{{MEMORY_DIR}}/episodic_last_session.md`
+3. Append to `{{MEMORY_DIR}}/episodic_sessions.md`
+4. Update `{{MEMORY_DIR}}/MEMORY.md` index if new files created
+
+---
 
 ## Ground Truth Preservation
 
+- memorymesh = structured truth (verified, scored)
+- Mem0 = raw truth (every action, unfiltered)
+- Local files = curated truth (user profile, preferences)
 - Never overwrite raw facts with summaries
-- Store episodic details (what was said, decided) not just conclusions
 - Convert relative dates to absolute when saving
-- Episodic logs are append-only
 
 ## Memory Directory
-All memory files: `{{MEMORY_DIR}}/`
+All local files: `{{MEMORY_DIR}}/`

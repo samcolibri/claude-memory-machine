@@ -35,17 +35,41 @@ That's it. Open any new Claude Code session — it remembers.
 
 ## What It Does
 
-| Layer | Cognitive Model | Implementation | Purpose |
-|-------|----------------|----------------|---------|
-| **Tier 1** | Short-Term Memory | Current context + `episodic_last_session.md` | What just happened |
-| **Tier 2** | Episodic Memory | Rolling session logs + optional Mem0 cloud | What happened over time (ground truth) |
-| **Tier 3** | Profile Memory | Structured markdown files with frontmatter | Who you are, how you work |
+| Layer | Cognitive Model | Implementation | Speed | Purpose |
+|-------|----------------|----------------|-------|---------|
+| **Layer 1** | Structured Memory | memorymesh MCP (SQLite + FTS5) | <10ms | Project details, architecture, credentials |
+| **Layer 2** | Episodic Memory | Mem0 Cloud (semantic vectors) | ~500ms | Deep history, cross-project patterns (1000+ memories) |
+| **Layer 3** | Profile Memory | Local markdown files with frontmatter | ~50ms | Who you are, how you work, behavioral preferences |
 
 ### The Key Insight (from MemMachine paper)
 
 > "How data is recalled matters more than how it is stored, provided storage preserves ground truth."
 
 Most AI memory systems compress your conversations into lossy summaries. Claude Memory Machine stores **raw episodic records** alongside distilled profiles, then uses **contextualized retrieval** — pulling not just matching facts, but the surrounding conversational context that makes those facts meaningful.
+
+### v2: Three-Layer Architecture
+
+The v2 system uses **three complementary memory layers**, each optimized for different speed/depth tradeoffs:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Layer 1: memorymesh MCP    ← FAST (local FTS5, <10ms) │
+│           Structured, importance-scored, tagged          │
+│           Project details, architecture, credentials     │
+│                                                          │
+│  Layer 2: Mem0 Cloud        ← DEEP (semantic vectors)   │
+│           1000+ raw memories, auto-captured              │
+│           Semantic search across months of history        │
+│                                                          │
+│  Layer 3: Local Markdown    ← CURATED (human-readable)  │
+│           Profile, feedback, project context              │
+│           Editable, version-controlled                   │
+│                                                          │
+│  Orchestrator: CLAUDE.md    ← BRAIN (queries all 3)     │
+└─────────────────────────────────────────────────────────┘
+```
+
+On every session start, Claude queries **all three layers simultaneously**, synthesizes the context, and greets you naturally — like a colleague who remembers every conversation you've ever had.
 
 ---
 
