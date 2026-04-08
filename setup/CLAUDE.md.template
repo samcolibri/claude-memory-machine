@@ -1,0 +1,83 @@
+# Global Instructions — Claude Memory Machine
+
+## Session Startup Protocol (MANDATORY)
+
+At the start of EVERY new conversation, before responding to the user's first message:
+
+1. **Read the memory index**: Read `{{MEMORY_DIR}}/MEMORY.md`
+2. **Read the last session summary**: Read `{{MEMORY_DIR}}/episodic_last_session.md` (if it exists)
+3. **Read relevant memory files**: Based on the user's first message, read any memory files from the index that are relevant to the current task
+4. **Silently integrate**: Do NOT announce that you're reading memory. Just use the context naturally, like a colleague who remembers past conversations.
+
+## Memory Architecture (MemMachine-Inspired, 3-Tier)
+
+This system implements the ground-truth-preserving architecture from the MemMachine paper (Wang et al., 2026).
+
+### Tier 1: Short-Term Memory (STM)
+- Current conversation context (handled by your context window)
+- Session summary written at end of each session to `episodic_last_session.md`
+- Acts as a bridge between sessions — the most recent context always available
+
+### Tier 2: Episodic Memory (Long-Term)
+- Rolling session summaries in `episodic_sessions.md` (recent sessions)
+- Preserves WHAT happened, WHEN, and in WHAT context — not just extracted facts
+- Ground truth preservation: raw episodic records alongside distilled summaries
+
+### Tier 3: Profile Memory (Semantic)
+- User preferences, role, feedback in memory directory files
+- Structured with frontmatter (name, description, type)
+- Types: user (who they are), feedback (how to behave), project (what's happening), reference (where to find things)
+
+## Memory File Format
+
+All memory files use this frontmatter format:
+```markdown
+---
+name: Memory Name
+description: One-line description used for relevance matching
+type: user|feedback|project|reference
+---
+Content here. For feedback/project types, structure as:
+Rule or fact statement.
+**Why:** The motivation behind this.
+**How to apply:** When and where to use this.
+```
+
+## Contextualized Retrieval
+
+When recalling information, follow MemMachine's contextualized retrieval principle:
+- When a memory file is relevant, read the FULL file (not just the title from the index)
+- Consider neighboring context: what was happening around that time, what project was active
+- Cross-reference multiple memory files when answering complex questions
+- Don't just retrieve isolated facts — retrieve the conversational context that makes those facts meaningful
+
+## Session End Protocol
+
+Before a session ends (when the user says goodbye, or the conversation naturally concludes):
+
+1. Write a brief session summary to `{{MEMORY_DIR}}/episodic_last_session.md` with:
+   - Date, directory worked in, key topics discussed
+   - Decisions made, problems solved, open items remaining
+   - Any new context learned about the user
+2. Update `{{MEMORY_DIR}}/MEMORY.md` index if new memory files were created
+3. Append a one-line entry to `{{MEMORY_DIR}}/episodic_sessions.md`
+
+## Memory Management Rules
+
+- **Save new memories** when you learn something that would be useful in future sessions
+- **Update existing memories** when information changes — don't create duplicates
+- **Never overwrite raw facts with summaries** — preserve ground truth
+- **Keep the MEMORY.md index under 200 lines** — it's a table of contents, not storage
+- **Use the right memory type**: user (who), feedback (how), project (what), reference (where)
+- **Convert relative dates to absolute** when saving (e.g., "next Thursday" → "2026-04-10")
+
+## Ground Truth Preservation Principle
+
+From MemMachine: "How data is recalled matters more than how it is stored, provided storage preserves ground truth."
+- Store episodic details (what the user said, what was decided) not just extracted conclusions
+- When updating memory, preserve the original context alongside the update
+- Episodic session logs are append-only — never delete past entries
+
+## Memory Directory
+
+All memory files are stored at: `{{MEMORY_DIR}}/`
