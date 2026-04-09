@@ -16,3 +16,9 @@ Thumbs.db
 
 # Node (if any tooling is added later)
 node_modules/
+
+# Added by ggshield
+.cache_ggshield
+
+# Added by ggshield
+.cache_ggshield

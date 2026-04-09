@@ -40,15 +40,30 @@ From a production run on April 8, 2026 — processing 1,353 real memories from 2
 
 ## Quick Start
 
+### One command (npx)
+
+```bash
+npx claude-memory-machine
+```
+
+That's it. No cloning, no setup. Open Claude Code and say "hi".
+
+### With options
+
+```bash
+npx claude-memory-machine --with-mem0     # + Mem0 cloud memory
+npx claude-memory-machine --status        # Check installation
+npx claude-memory-machine --uninstall     # Clean removal
+```
+
+### Or clone the repo
+
 ```bash
 git clone https://github.com/samcolibri/claude-memory-machine.git
 cd claude-memory-machine
-chmod +x install.sh
-./install.sh                    # Local only, no cloud, < 2 minutes
+./install.sh                    # Local only, no cloud
 ./install.sh --with-mem0        # + Mem0 cloud for ground truth storage
 ```
-
-Open any new Claude Code session. Say anything. It remembers.
 
 ---
 

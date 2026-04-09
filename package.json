@@ -1,0 +1,41 @@
+{
+  "name": "claude-memory-machine",
+  "version": "1.0.0",
+  "description": "Give Claude Code a real memory. MemMachine-inspired 3-tier cognitive architecture with 5 autonomous agents.",
+  "bin": {
+    "claude-memory-machine": "./bin/cli.js"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "memory",
+    "ai-memory",
+    "memmachine",
+    "episodic-memory",
+    "ai-agents",
+    "llm",
+    "anthropic",
+    "memorymesh",
+    "mem0"
+  ],
+  "author": "samcolibri",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samcolibri/claude-memory-machine.git"
+  },
+  "homepage": "https://github.com/samcolibri/claude-memory-machine#readme",
+  "files": [
+    "bin/",
+    "setup/",
+    "memory/",
+    "agents/",
+    "examples/",
+    "install.sh",
+    "uninstall.sh",
+    ".env.example"
+  ],
+  "engines": {
+    "node": ">=14"
+  }
+}
