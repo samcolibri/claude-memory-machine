@@ -1,192 +1,150 @@
-# Architecture: Claude Memory Machine
+# Architecture: Claude Memory Machine v2
 
 ## Design Philosophy
 
-Claude Memory Machine adapts the MemMachine paper's server-side architecture into a lightweight, file-based system that runs entirely within Claude Code's existing infrastructure. No databases, no servers, no API keys required (unless you opt into Mem0 cloud).
+Three principles from the MemMachine paper, applied to Claude Code:
 
-**Core principle:** Use Claude Code's native features (CLAUDE.md auto-loading, hooks, file-based memory) to implement the same cognitive architecture that MemMachine achieves with PostgreSQL + Neo4j + embedding services.
+1. **Ground truth preservation** — Store raw episodic records, not just AI-compressed summaries
+2. **Retrieval over ingestion** — Invest in smart recall, not heavy processing at write time
+3. **Layered cognitive architecture** — Different memory types at different speeds for different purposes
 
 ## System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        CLAUDE CODE SESSION                       │
-│                                                                  │
-│  ┌──────────────┐     ┌──────────────────────────────────────┐  │
-│  │   User's      │     │         Claude's Context Window       │  │
-│  │   Terminal     │────>│                                      │  │
-│  │   (any dir)    │     │  CLAUDE.md (global, auto-loaded)     │  │
-│  └──────────────┘     │  ┌─────────────────────────────────┐ │  │
-│                        │  │  Startup Protocol:               │ │  │
-│                        │  │  1. Read MEMORY.md index         │ │  │
-│                        │  │  2. Read last session summary    │ │  │
-│                        │  │  3. Read relevant memories       │ │  │
-│                        │  │  4. Integrate silently           │ │  │
-│                        │  └─────────────────────────────────┘ │  │
-│                        └──────────────────────────────────────┘  │
-│                                      │                           │
-│                                      ▼                           │
-│  ┌───────────────────────────────────────────────────────────┐   │
-│  │                    MEMORY LAYER                            │   │
-│  │                                                           │   │
-│  │  ┌─────────────┐  ┌──────────────┐  ┌─────────────────┐ │   │
-│  │  │   TIER 1     │  │   TIER 2      │  │    TIER 3       │ │   │
-│  │  │   STM        │  │   Episodic    │  │    Profile      │ │   │
-│  │  │              │  │              │  │                 │ │   │
-│  │  │ Context      │  │ session_log  │  │ user_*.md       │ │   │
-│  │  │ Window       │  │ last_session │  │ feedback_*.md   │ │   │
-│  │  │              │  │              │  │ project_*.md    │ │   │
-│  │  │              │  │ [Mem0 Cloud] │  │ reference_*.md  │ │   │
-│  │  └─────────────┘  └──────────────┘  └─────────────────┘ │   │
-│  │                                                           │   │
-│  │  Index: MEMORY.md (< 200 lines, table of contents)       │   │
-│  └───────────────────────────────────────────────────────────┘   │
-│                                      │                           │
-│                                      ▼                           │
-│  ┌───────────────────────────────────────────────────────────┐   │
-│  │                  HOOKS LAYER (Optional)                    │   │
-│  │                                                           │   │
-│  │  PostToolUse ──> mem0_hook.sh ──> Mem0 Cloud API         │   │
-│  │  (Write|Edit|Bash events push to ground truth store)     │   │
-│  └───────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                      CLAUDE CODE SESSION                          │
+│                                                                   │
+│  User opens terminal (any directory, any IDE)                     │
+│  └── CLAUDE.md auto-loads (global, first-class Claude feature)   │
+│      └── Startup Protocol:                                        │
+│          ├── memorymesh: get_context() → <10ms local FTS5        │
+│          ├── Mem0: mem0_recall.sh → ~500ms semantic search       │
+│          ├── Markdown: MEMORY.md + session bridge → ~50ms        │
+│          └── Synthesize + welcome user naturally                  │
+│                                                                   │
+├──────────────────────────────────────────────────────────────────┤
+│                     MEMORY LAYERS                                 │
+│                                                                   │
+│  ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐ │
+│  │ LAYER 1           │ │ LAYER 2           │ │ LAYER 3          │ │
+│  │ memorymesh MCP    │ │ Mem0 Cloud        │ │ Local Markdown   │ │
+│  │                   │ │                   │ │                  │ │
+│  │ SQLite + FTS5     │ │ Semantic vectors  │ │ YAML frontmatter │ │
+│  │ 158 memories      │ │ 758 memories      │ │ 18 files         │ │
+│  │ Importance: 0.78  │ │ Auto-captured     │ │ Human-editable   │ │
+│  │ 7 sources         │ │ 100% signal       │ │ 5 types          │ │
+│  │ <10ms queries     │ │ ~500ms queries    │ │ ~50ms reads      │ │
+│  └──────────────────┘ └──────────────────┘ └──────────────────┘ │
+│                                                                   │
+├──────────────────────────────────────────────────────────────────┤
+│                   AUTONOMOUS AGENTS                               │
+│                                                                   │
+│  ┌─ Level 3 (Proactive) ──────────────────────────────────────┐ │
+│  │ Consolidator    : Clean noise, dedup, promote to memorymesh │ │
+│  │ Pattern Detector: Topic clusters, project threads, blockers │ │
+│  │ Daily Briefing  : Morning context for session bridge        │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│  ┌─ Level 4 (Self-Evolving) ──────────────────────────────────┐ │
+│  │ Digital Twin    : Comprehensive user model from all memory  │ │
+│  │ Causal Tracker  : Decision→outcome chains, importance adj.  │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                                                                   │
+├──────────────────────────────────────────────────────────────────┤
+│                      HOOKS                                        │
+│                                                                   │
+│  PostToolUse → mem0_hook.sh → every Write/Edit/Bash action       │
+│                → pushed to Mem0 cloud (ground truth capture)      │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ## How It Maps to MemMachine
 
-| MemMachine Component | Claude Memory Machine Equivalent |
-|---------------------|----------------------------------|
-| PostgreSQL + pgvector | Markdown files + Claude's native search |
-| Neo4j graph store | Cross-references in MEMORY.md index |
-| Embedding service | Claude's semantic understanding of file content |
-| REST API / Python SDK | Claude Code's Read/Write/Edit tools |
-| Sentence-level indexing | Frontmatter descriptions in memory files |
-| Episode clusters | Full memory file reads (not just titles) |
-| Contextualized retrieval | Instructions to cross-reference and read full files |
-| Profile extraction | Auto-memory system with structured types |
+| MemMachine Component | Our Implementation |
+|---------------------|-------------------|
+| PostgreSQL + pgvector | memorymesh (SQLite + FTS5) |
+| Neo4j graph store | Cross-references in MEMORY.md + memorymesh tags |
+| Embedding service | Mem0 cloud (semantic vectors) + Claude's understanding |
+| REST API | memorymesh MCP tools + Mem0 REST API |
+| Sentence-level indexing | memorymesh content + frontmatter descriptions |
+| Contextualized retrieval | Three-layer synthesis in CLAUDE.md protocol |
+| Profile extraction | Auto-memory system + Digital Twin agent |
 | STM window | Context window + episodic_last_session.md |
 | Multi-tenancy | Per-project memory directories |
+| LLM-based summarization | Daily Briefing agent |
 
-## File Format
+## Agent Architecture
 
-Every memory file uses YAML frontmatter for machine-readable metadata:
-
-```markdown
----
-name: Human-readable name
-description: One-line description used for relevance matching
-type: user|feedback|project|reference
----
-
-Content body. For feedback and project types:
-
-Statement of the rule or fact.
-
-**Why:** The motivation behind this.
-**How to apply:** When and where this guidance kicks in.
+```
+memory_agent.py (Master Orchestrator)
+├── consolidator.py ──→ mem0_client.py ──→ Mem0 REST API
+│                   └─→ memorymesh_client.py ──→ SQLite DB
+├── pattern_detector.py ──→ Both clients + Claude API
+├── daily_briefing.py ──→ Both clients + Claude API
+├── digital_twin.py ──→ Both clients + Claude API
+├── causal_tracker.py ──→ Both clients + Claude API
+└── config.py (shared configuration, API keys, thresholds)
 ```
 
-### Why Frontmatter?
+### Agent Design Principles
 
-1. **Relevance matching**: The `description` field acts like an embedding — Claude uses it to decide which files to read in full
-2. **Type routing**: `type` determines how the memory is used (personalization vs. behavior vs. context)
-3. **Index efficiency**: MEMORY.md only needs one-line entries; full content lives in individual files
+1. **Claude API is optional** — Every agent has a heuristic fallback. If no API key or credits, agents still produce useful results.
+2. **Idempotent** — Running an agent twice produces the same result. Safe to re-run.
+3. **Non-destructive** — Consolidator removes noise but never touches signal. Digital twin replaces its own previous output, not other memories.
+4. **Self-evolving** — Causal tracker adjusts importance scores automatically. The system gets better at knowing what matters.
 
-## Data Flow: Complete Lifecycle
+## Data Flow: Write Path
 
-### 1. Installation
 ```
-install.sh
-  ├── Creates ~/.claude/CLAUDE.md (global brain)
-  ├── Creates memory/ directory with templates
-  ├── Configures hooks in settings.json (optional Mem0)
-  └── Verifies all components
-```
+User action in Claude Code
+  └── PostToolUse hook fires
+      └── mem0_hook.sh sends to Mem0 cloud (background, non-blocking)
+          └── Raw action stored as episodic ground truth
 
-### 2. Session Start (Automatic)
-```
-User opens Claude Code (any directory)
-  └── CLAUDE.md auto-loads (Claude Code native feature)
-      └── Startup Protocol triggers:
-          ├── Read MEMORY.md (what memories exist?)
-          ├── Read episodic_last_session.md (what happened last time?)
-          ├── Read relevant memory files (based on user's first message)
-          └── Integrate silently (no "I'm loading memories" announcement)
+Claude learns something important
+  └── memorymesh remember_memory(content, importance, tags)
+      └── Structured, searchable, importance-scored
+
+User shares preference or correction
+  └── Written to feedback_*.md in memory/
+      └── Human-readable, editable, indexed in MEMORY.md
 ```
 
-### 3. During Session
-```
-User and Claude interact
-  ├── Claude learns new facts → writes to memory/ files
-  ├── Claude receives corrections → saves feedback memories
-  ├── PostToolUse hook fires (if Mem0 enabled):
-  │   └── Raw action pushed to Mem0 cloud (ground truth)
-  └── Profile memory updated as user shares preferences
-```
+## Data Flow: Read Path (Session Start)
 
-### 4. Session End
 ```
-Conversation concludes
-  ├── Claude writes session summary → episodic_last_session.md
-  ├── Claude appends one-liner → episodic_sessions.md
-  └── Claude updates MEMORY.md if new files were created
+CLAUDE.md loads (automatic)
+  ├── memorymesh get_context(query, limit=10)         ← <10ms
+  ├── mem0_recall.sh "relevant query" 10               ← ~500ms
+  ├── Read MEMORY.md index                             ← ~10ms
+  ├── Read episodic_last_session.md                    ← ~10ms
+  └── Read relevant markdown files                     ← ~30ms
+      └── Synthesized into natural welcome             ← Total: <1s
 ```
 
-### 5. Next Session (The Magic)
+## Data Flow: Evolution Path (Agents)
+
 ```
-User opens Claude Code again (possibly different directory!)
-  └── CLAUDE.md loads → reads MEMORY.md → reads last session
-      └── Claude naturally continues with full context
-          "Welcome back. Last time we were working on..."
+Overnight:
+  Consolidator → Cleans Mem0 → Promotes to memorymesh
+  Pattern Detector → Analyzes → Writes report to memorymesh
+  Daily Briefing → Generates → Writes to session bridge
+
+Weekly:
+  Digital Twin → Analyzes ALL memories → Updates user model
+  Causal Tracker → Links decisions→outcomes → Adjusts importance
 ```
-
-## Why This Works
-
-### Claude Code's `~/.claude/CLAUDE.md` is the Key
-
-This is a first-class Claude Code feature: any file at `~/.claude/CLAUDE.md` is automatically loaded into the system prompt of every Claude Code session, regardless of which directory the user is in.
-
-This means:
-- Open Claude Code in `~/projects/web-app/` → memory loads
-- Open Claude Code in `~/Documents/research/` → memory loads  
-- Open Claude Code in `/tmp/` → memory loads
-- Open Claude Code via VS Code → memory loads
-- Open Claude Code via JetBrains → memory loads
-
-### Markdown is the Database
-
-By using plain markdown files instead of a database:
-- **Zero infrastructure**: No PostgreSQL, no Neo4j, no embedding service
-- **Human readable**: You can open and edit your memories in any text editor
-- **Version controllable**: Git track your memory evolution
-- **Portable**: Copy your memory/ folder to any machine
-- **Private**: Everything stays local, no cloud required
-
-### Claude IS the Retrieval Engine
-
-Instead of building a separate embedding + vector search pipeline, we leverage Claude's native ability to:
-- Read the MEMORY.md index and understand relevance
-- Decide which files to read based on the current query
-- Cross-reference multiple memory files for complex questions
-- Write structured memory files with proper metadata
-
-This is essentially using Claude as both the "embedding model" and the "reranker" from MemMachine's architecture — but without the infrastructure overhead.
 
 ## Limitations vs. Full MemMachine
 
-| Capability | MemMachine | Claude Memory Machine |
-|-----------|------------|----------------------|
-| Sentence-level embeddings | Yes | No (file-level) |
-| Vector similarity search | Yes (pgvector) | No (semantic via Claude) |
-| Sub-second retrieval | Yes | Depends on file count |
+| Capability | MemMachine | Memory Machine v2 |
+|-----------|-----------|-------------------|
+| Sentence-level embeddings | Yes | No (Mem0 handles this) |
+| Vector similarity search | Yes (pgvector) | Yes (Mem0 cloud) |
 | Multi-hop Retrieval Agent | Yes | No (single-pass) |
-| Automatic reranking | Yes (cross-encoder) | Manual (Claude decides) |
+| Cross-encoder reranking | Yes | No (Claude decides) |
 | Graph traversal | Yes (Neo4j) | No |
-| Scale to 10K+ episodes | Yes | Limited (~100s of files) |
-| Zero LLM cost for retrieval | Mostly | No (Claude reads files) |
-
-### When You Need Full MemMachine
-
-If you have thousands of sessions, need sub-second retrieval, or require multi-hop reasoning over massive conversation histories, use the full [MemMachine server](https://github.com/MemMachine/MemMachine).
-
-Claude Memory Machine is designed for individual developers who want persistent memory across Claude Code sessions with zero infrastructure.
+| Scale to 100K+ episodes | Yes | ~1K-5K comfortable |
+| Self-evolving importance | No | **Yes** (causal tracker) |
+| Digital twin | No | **Yes** |
+| Autonomous agents | No | **Yes** (5 agents) |
+| Zero infrastructure | No | **Yes** |

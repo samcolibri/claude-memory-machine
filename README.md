@@ -2,368 +2,334 @@
 
 **Give Claude Code a real memory. Every session. Every directory. Forever.**
 
-Inspired by the [MemMachine paper](docs/paper-summary.md) (Wang et al., 2026) — a ground-truth-preserving memory system that achieves 93% accuracy on complex memory benchmarks while using 80% fewer tokens than existing solutions.
-
-Claude Memory Machine brings MemMachine's three-tier cognitive architecture to Claude Code CLI, so your AI assistant remembers you across every session, every project, every terminal window.
+Inspired by the [MemMachine paper](docs/paper-summary.md) (Wang et al., 2026) — a ground-truth-preserving memory system that achieves 93% accuracy while using 80% fewer tokens than existing solutions.
 
 ```
               Before                              After
-    ┌─────────────────────┐            ┌─────────────────────┐
-    │  "Who are you?"     │            │  "Welcome back.     │
-    │  "What project?"    │            │   Last time we      │
-    │  "Remind me what    │    ──>     │   fixed the auth    │
-    │   we did last time" │            │   bug. Ready to     │
-    │  "Start over..."    │            │   continue?"        │
-    └─────────────────────┘            └─────────────────────┘
-         Stateless AI                    AI with Memory
+    ┌─────────────────────┐            ┌─────────────────────────────┐
+    │  "Who are you?"     │            │  "Hey. Last session we      │
+    │  "What project?"    │            │   pushed the auth fix.      │
+    │  "Remind me what    │    ──>     │   Workday is live 15/15.    │
+    │   we did last time" │            │   NetSuite still blocked    │
+    │  "Start over..."    │            │   on AWS creds. What next?" │
+    └─────────────────────┘            └─────────────────────────────┘
+         Stateless AI                    AI with 934 memories
+                                         across 3 layers + 5 agents
 ```
 
 ---
 
-## Quick Start (< 2 minutes)
+## Live Results (Not Benchmarks — Real Data)
+
+From a production run on April 8, 2026 — processing 1,353 real memories from 2+ weeks of daily development:
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Mem0 noise | 386 memories (29%) | **0 (cleaned)** |
+| Mem0 duplicates | 202 redundant | **0 (deduped)** |
+| memorymesh structured memories | 19 | **158 (+731%)** |
+| Average importance score | ~0.5 | **0.78** |
+| Decision→outcome chains tracked | 0 | **11** |
+| Self-adjusted importance scores | 0 | **9** |
+| Blocker patterns detected | 0 | **33** |
+| Active project threads | 0 | **8 (auto-detected)** |
+
+> **[Full results with all agent outputs →](docs/RESULTS.md)**
+
+---
+
+## Quick Start
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/claude-memory-machine.git
+git clone https://github.com/samcolibri/claude-memory-machine.git
 cd claude-memory-machine
 chmod +x install.sh
-./install.sh
+./install.sh                    # Local only, no cloud, < 2 minutes
+./install.sh --with-mem0        # + Mem0 cloud for ground truth storage
 ```
 
-That's it. Open any new Claude Code session — it remembers.
+Open any new Claude Code session. Say anything. It remembers.
 
 ---
 
-## What It Does
+## Architecture: Three Layers + Five Agents
 
-| Layer | Cognitive Model | Implementation | Speed | Purpose |
-|-------|----------------|----------------|-------|---------|
-| **Layer 1** | Structured Memory | memorymesh MCP (SQLite + FTS5) | <10ms | Project details, architecture, credentials |
-| **Layer 2** | Episodic Memory | Mem0 Cloud (semantic vectors) | ~500ms | Deep history, cross-project patterns (1000+ memories) |
-| **Layer 3** | Profile Memory | Local markdown files with frontmatter | ~50ms | Who you are, how you work, behavioral preferences |
-
-### The Key Insight (from MemMachine paper)
-
-> "How data is recalled matters more than how it is stored, provided storage preserves ground truth."
-
-Most AI memory systems compress your conversations into lossy summaries. Claude Memory Machine stores **raw episodic records** alongside distilled profiles, then uses **contextualized retrieval** — pulling not just matching facts, but the surrounding conversational context that makes those facts meaningful.
-
-### v2: Three-Layer Architecture
-
-The v2 system uses **three complementary memory layers**, each optimized for different speed/depth tradeoffs:
+### The Three Memory Layers
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  Layer 1: memorymesh MCP    ← FAST (local FTS5, <10ms) │
-│           Structured, importance-scored, tagged          │
-│           Project details, architecture, credentials     │
-│                                                          │
-│  Layer 2: Mem0 Cloud        ← DEEP (semantic vectors)   │
-│           1000+ raw memories, auto-captured              │
-│           Semantic search across months of history        │
-│                                                          │
-│  Layer 3: Local Markdown    ← CURATED (human-readable)  │
-│           Profile, feedback, project context              │
-│           Editable, version-controlled                   │
-│                                                          │
-│  Orchestrator: CLAUDE.md    ← BRAIN (queries all 3)     │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│  Layer 1: memorymesh MCP        ← FAST (<10ms)              │
+│  Local SQLite + FTS5 full-text search                       │
+│  Importance-scored, tagged, structured                      │
+│  158 memories, avg importance 0.78                          │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 2: Mem0 Cloud            ← DEEP (semantic vectors)   │
+│  Auto-captured via PostToolUse hook                         │
+│  758 clean memories (post-consolidation)                    │
+│  Semantic search across weeks of history                    │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 3: Local Markdown        ← CURATED (human-readable)  │
+│  18 files: user, feedback, project, reference               │
+│  Includes auto-generated digital twin                       │
+│  Editable, version-controlled, portable                     │
+├─────────────────────────────────────────────────────────────┤
+│  Orchestrator: ~/.claude/CLAUDE.md                          │
+│  Queries ALL 3 layers on every session startup              │
+│  Auto-welcomes user with synthesized context                │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-On every session start, Claude queries **all three layers simultaneously**, synthesizes the context, and greets you naturally — like a colleague who remembers every conversation you've ever had.
+Each layer serves a different speed/depth tradeoff:
+
+| Layer | Speed | Depth | Best For |
+|-------|-------|-------|----------|
+| memorymesh | <10ms | Structured facts | Architecture, credentials, decisions |
+| Mem0 Cloud | ~500ms | Semantic search | "What happened 3 weeks ago?", cross-project |
+| Local Markdown | ~50ms | Curated profile | Who you are, how you work, preferences |
+
+### The Five Autonomous Agents
+
+| Agent | Level | Schedule | What It Does |
+|-------|-------|----------|-------------|
+| **Consolidator** | L3 | Daily 1 AM | Cleans noise, deduplicates, promotes high-value memories |
+| **Pattern Detector** | L3 | Daily 11 PM | Finds recurring themes, project threads, blockers |
+| **Daily Briefing** | L3 | Daily 5:30 AM | Generates morning briefing for session bridge |
+| **Digital Twin** | L4 | Weekly Sun 2 AM | Builds comprehensive user model from all memories |
+| **Causal Tracker** | L4 | Weekly Fri 11 PM | Tracks decision→outcome chains, self-evolves scores |
 
 ---
 
-## Architecture
+## The Session Lifecycle
 
 ```
-~/.claude/
-├── CLAUDE.md                          # Global brain — loaded EVERY session
-├── settings.json                      # Hooks for automatic memory capture
-└── projects/
-    └── {your-project}/
-        └── memory/
-            ├── MEMORY.md              # Index — the "table of contents" of your mind
-            ├── episodic_last_session.md    # Tier 1: STM bridge
-            ├── episodic_sessions.md        # Tier 2: Rolling session log
-            ├── user_*.md                   # Tier 3: Profile memories
-            ├── feedback_*.md              # Tier 3: Behavioral preferences
-            ├── project_*.md               # Tier 3: Active project context
-            └── reference_*.md             # Tier 3: External system pointers
-```
-
-### Data Flow
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│                     SESSION START                             │
+┌─ BEFORE YOUR FIRST PROMPT ──────────────────────────────────┐
 │                                                              │
-│  1. CLAUDE.md loads (global, every directory)                │
-│  2. Read MEMORY.md index                                     │
-│  3. Read episodic_last_session.md (STM bridge)              │
-│  4. Read relevant memory files based on user's first msg    │
-│  5. Silently integrate — respond with full context           │
+│  ~/.claude/CLAUDE.md auto-loads (global, every directory)    │
+│  → memorymesh queried (structured local, <10ms)              │
+│  → Mem0 searched (semantic cloud, ~500ms)                    │
+│  → Session bridge read (last session summary)                │
+│  → Relevant markdown files loaded                            │
+│  → Claude greets you naturally with full context             │
 │                                                              │
-├──────────────────────────────────────────────────────────────┤
-│                     DURING SESSION                           │
+├─ DURING YOUR SESSION ────────────────────────────────────────┤
 │                                                              │
-│  - Claude learns new facts → writes to memory/ files        │
-│  - PostToolUse hook → captures actions to Mem0 (optional)   │
-│  - Profile memory updated when user shares preferences      │
+│  You work normally with Claude                               │
+│  → PostToolUse hook auto-captures actions to Mem0            │
+│  → Claude saves important learnings to memorymesh            │
+│  → Profile memories updated when you share preferences       │
 │                                                              │
-├──────────────────────────────────────────────────────────────┤
-│                     SESSION END                              │
+├─ AFTER YOUR SESSION ─────────────────────────────────────────┤
 │                                                              │
-│  1. Write session summary → episodic_last_session.md        │
-│  2. Append to rolling log → episodic_sessions.md            │
-│  3. Update MEMORY.md index if new memories created          │
+│  Claude writes session summary → episodic_last_session.md    │
+│  Claude appends to rolling log → episodic_sessions.md        │
+│                                                              │
+├─ OVERNIGHT (Autonomous Agents) ──────────────────────────────┤
+│                                                              │
+│  1 AM: Consolidator cleans noise + deduplicates              │
+│  5:30 AM: Daily Briefing generated for morning session       │
+│  11 PM: Pattern Detector analyzes the day                    │
+│  Weekly: Digital Twin + Causal Tracker evolve the model      │
 │                                                              │
 └──────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
+## Level 4: Self-Evolving Memory
+
+This isn't just storage. The system **evolves itself**:
+
+### Causal Tracking
+Decisions are linked to outcomes. The system tracks what worked and what didn't:
+
+```
+Decision: "Committed ICP2 decision brief with live-verified numbers"
+  → Outcome: POSITIVE (committed V5 Progressive Autonomy engine)
+  → memorymesh importance: automatically boosted
+
+Decision: "Created standalone docs without paired code"
+  → Outcome: NEGATIVE (100% failure rate detected)
+  → Insight stored: "Always pair docs with functional code"
+```
+
+### Self-Adjusting Importance
+Memories that lead to positive outcomes get their importance scores automatically increased. Memories associated with failures are preserved (failures are valuable to remember) but differently weighted. **The system literally learns what matters.**
+
+### Digital Twin
+An auto-generated comprehensive model of who you are:
+
+```
+EXPERTISE:   Claude(217), GTM(175), Git(165), QA(109), Bash(89)
+STYLE:       Moves fast (31%), Detail-oriented (25%), Autonomous (18%)
+PEAK HOURS:  10 AM, 6 AM, midnight
+PEAK DAYS:   Monday, Friday, Thursday
+FOOTPRINT:   934 memories across 3 systems
+```
+
+This model is used by Claude to calibrate how it helps you — more direct with an experienced developer, more architectural with a systems thinker.
+
+---
+
 ## Memory Types
 
 ### User Memories (`user_*.md`)
-Who you are. Your role, expertise, preferences.
 ```markdown
 ---
 name: User Role
 description: Software engineer, 5 years Python, new to Rust
 type: user
 ---
-Senior Python developer at Acme Corp, transitioning to Rust for the new microservices platform.
+Senior Python developer at Acme Corp, transitioning to Rust.
 Prefers concise explanations with code examples over theory.
 ```
 
 ### Feedback Memories (`feedback_*.md`)
-How you want Claude to behave. Corrections AND confirmations.
 ```markdown
 ---
 name: Testing Approach
-description: Always use real databases in integration tests, never mocks
+description: Always use real databases in integration tests
 type: feedback
 ---
 Integration tests must hit a real database, not mocks.
 **Why:** Prior incident where mock/prod divergence masked a broken migration.
-**How to apply:** When writing or reviewing test code, ensure DB tests use testcontainers or a real test database.
+**How to apply:** Use testcontainers or a real test database.
 ```
 
 ### Project Memories (`project_*.md`)
-What's happening in your work right now.
 ```markdown
 ---
 name: Auth Rewrite
 description: Auth middleware rewrite driven by compliance, not tech debt
 type: project
 ---
-Auth middleware rewrite is driven by legal/compliance requirements around session token storage.
+Auth middleware rewrite is driven by legal/compliance requirements.
 **Why:** Legal flagged current implementation for non-compliant session storage.
-**How to apply:** Scope decisions should favor compliance over ergonomics.
+**How to apply:** Favor compliance over ergonomics in scope decisions.
 ```
 
 ### Reference Memories (`reference_*.md`)
-Where to find things in external systems.
 ```markdown
 ---
 name: Bug Tracker
 description: Pipeline bugs tracked in Linear project INGEST
 type: reference
 ---
-Pipeline bugs are tracked in Linear project "INGEST".
-API latency dashboard: grafana.internal/d/api-latency (oncall watches this).
+Pipeline bugs: Linear project "INGEST"
+Latency dashboard: grafana.internal/d/api-latency (oncall watches this)
+```
+
+---
+
+## The Science
+
+Based on the [MemMachine paper](docs/paper-summary.md) (Wang et al., 2026):
+
+> "How data is recalled matters more than how it is stored, provided storage preserves ground truth."
+
+| System | LoCoMo Score | Tokens Used | Ground Truth |
+|--------|-------------|-------------|--------------|
+| **MemMachine** | **91.69%** | **~4.2M** | **Preserved** |
+| Mem0 | 66.88% | ~19.2M | Partial |
+| Zep | 75.14% | N/A | Partial |
+| OpenAI Memory | 52.90% | N/A | No |
+
+Key findings applied in this project:
+- **Retrieval > Ingestion**: How you recall matters more than how you store (+4.2% from retrieval depth alone)
+- **Ground Truth > Summaries**: Raw episodes + smart search beats LLM-compressed summaries
+- **Contextualized > Isolated**: Episode clusters with surrounding context beat isolated fact retrieval
+- **Three cognitive tiers**: STM + Episodic + Semantic, matching human memory architecture
+
+---
+
+## File Structure
+
+```
+~/.claude/
+├── CLAUDE.md                              # The brain — auto-loads every session
+├── scripts/
+│   └── mem0_recall.sh                     # Mem0 semantic search
+├── memory-agents/                         # Level 3 + 4 autonomous agents
+│   ├── memory_agent.py                    # Master orchestrator
+│   ├── consolidator.py                    # L3: Noise cleanup + dedup
+│   ├── pattern_detector.py                # L3: Theme + blocker detection
+│   ├── daily_briefing.py                  # L3: Morning briefing generator
+│   ├── digital_twin.py                    # L4: User model builder
+│   ├── causal_tracker.py                  # L4: Decision→outcome tracking
+│   ├── config.py                          # Shared configuration
+│   ├── mem0_client.py                     # Mem0 REST API client
+│   ├── memorymesh_client.py               # memorymesh SQLite client
+│   └── logs/                              # Agent run logs
+└── projects/{your-project}/memory/
+    ├── MEMORY.md                          # Index
+    ├── episodic_last_session.md           # Session bridge (STM)
+    ├── episodic_sessions.md               # Rolling log
+    ├── digital_twin.md                    # Auto-generated user model
+    ├── user_*.md                          # Profile memories
+    ├── feedback_*.md                      # Behavioral preferences
+    ├── project_*.md                       # Active project context
+    └── reference_*.md                     # External system pointers
 ```
 
 ---
 
 ## Configuration
 
-### Basic (No Cloud — 100% Local)
-
-The default install uses only local files. No API keys, no cloud services, no data leaves your machine.
-
+### Local Only (Default)
 ```bash
 ./install.sh
 ```
+Zero cloud, zero API keys. Memory lives in local markdown files + memorymesh SQLite.
 
-### Advanced (With Mem0 Cloud — Ground Truth Preservation)
-
-For full MemMachine-style episodic ground truth storage, add Mem0 integration:
-
+### With Mem0 Cloud
 ```bash
 ./install.sh --with-mem0
-# You'll be prompted for your Mem0 API key
 ```
+Adds semantic vector search across all your sessions. Auto-captures every action.
 
-This adds a PostToolUse hook that pushes raw session actions to Mem0's cloud, giving you a searchable archive of every interaction.
-
-### Custom Memory Directory
-
+### With Level 3 + 4 Agents
 ```bash
-./install.sh --memory-dir /path/to/your/memory
+# After install, set up cron schedule:
+bash ~/.claude/memory-agents/install_cron.sh
+
+# Or run manually:
+python3 ~/.claude/memory-agents/memory_agent.py           # All agents
+python3 ~/.claude/memory-agents/memory_agent.py twin       # Just digital twin
+python3 ~/.claude/memory-agents/memory_agent.py --dry-run  # Preview changes
 ```
-
----
-
-## How It Compares
-
-Based on benchmarks from the MemMachine paper (Wang et al., 2026):
-
-| System | LoCoMo Score | Token Usage | Ground Truth | Open Source |
-|--------|-------------|-------------|--------------|-------------|
-| **MemMachine** | **91.69%** | **~4.2M** | **Preserved** | **Yes** |
-| Mem0 | 66.88% | ~19.2M | Partial | Partial |
-| Zep | 75.14% | N/A | Partial | Partial |
-| Memobase | 75.78% | N/A | Partial | Yes |
-| OpenAI Memory | 52.90% | N/A | No | No |
-| LangMem | 58.10% | N/A | No | Yes |
-
-### Key Results from the Paper
-
-- **93.0%** accuracy on LongMemEval (ICLR 2025 benchmark)
-- **93.2%** on HotpotQA hard set with Retrieval Agent
-- **~80%** fewer input tokens than Mem0
-- **Retrieval-stage optimizations dominate**: retrieval depth (+4.2%), context formatting (+2.0%), search prompt design (+1.8%) each outweigh ingestion-stage chunking (+0.8%)
-
----
-
-## The Science Behind It
-
-### Three Memory Tiers (Cognitive Science Foundation)
-
-Based on Tulving's (1972) episodic-semantic distinction and the Atkinson-Shiffrin multi-store model:
-
-```
-┌─────────────────────────────────────────────────┐
-│           TIER 1: SHORT-TERM MEMORY             │
-│                                                 │
-│  Current conversation context window            │
-│  + Last session summary (STM bridge)            │
-│  Capacity: Limited (context window)             │
-│  Duration: Current session                      │
-│                                                 │
-├─────────────────────────────────────────────────┤
-│          TIER 2: EPISODIC MEMORY                │
-│                                                 │
-│  Raw conversation records (ground truth)        │
-│  Rolling session summaries                      │
-│  What happened, when, in what context           │
-│  Capacity: Unlimited (file-based)               │
-│  Duration: Persistent                           │
-│                                                 │
-├─────────────────────────────────────────────────┤
-│          TIER 3: PROFILE MEMORY                 │
-│                                                 │
-│  User preferences, facts, patterns              │
-│  Behavioral feedback & corrections              │
-│  Project context & references                   │
-│  Capacity: Curated (quality > quantity)          │
-│  Duration: Persistent, evolving                 │
-│                                                 │
-└─────────────────────────────────────────────────┘
-```
-
-### Contextualized Retrieval
-
-Traditional RAG grabs isolated matching chunks. MemMachine's contextualized retrieval expands matches to include surrounding conversational turns:
-
-```
-Query: "What did we decide about the database?"
-
-Traditional RAG:
-  → "We'll use PostgreSQL" (isolated fact, no context)
-
-Contextualized Retrieval:
-  → User asked about scaling requirements          (context)
-  → Team discussed MySQL vs PostgreSQL tradeoffs   (context)  
-  → Decision: PostgreSQL for JSONB support         (nucleus match)
-  → Action item: Set up read replicas by Friday    (context)
-```
-
-### Ground Truth Preservation
-
-```
-┌────────────────────────────────┐
-│     LLM-Extracted Memory       │
-│                                │
-│  "User likes Italian food"     │  ← Lossy summary
-│  (Original context lost)       │     What if they said
-│                                │     "I liked that Italian
-│                                │     place, but only for
-│                                │     lunch meetings"?
-└────────────────────────────────┘
-
-┌────────────────────────────────┐
-│   Ground Truth + Profile       │
-│                                │
-│  Episode: "I liked that        │  ← Raw record preserved
-│  Italian place on 5th, but     │
-│  only for lunch meetings.      │
-│  For dinner I prefer Thai."    │
-│                                │
-│  Profile: Italian (lunch),     │  ← Distilled on top,
-│  Thai (dinner)                 │     not instead of
-└────────────────────────────────┘
-```
-
----
-
-## Uninstall
-
-```bash
-./uninstall.sh
-```
-
-This removes only the Claude Memory Machine configuration. Your memory files are preserved (you choose whether to delete them).
 
 ---
 
 ## FAQ
 
-**Q: Does my data leave my machine?**
-A: With the default install, no. Everything is local markdown files. The optional Mem0 integration sends action summaries to Mem0's cloud.
+**Does my data leave my machine?**
+Default install: no. With Mem0: action summaries go to Mem0 cloud. With Claude API agents: memory text goes to Anthropic for analysis.
 
-**Q: Does this work with Claude Code in VS Code / JetBrains?**
-A: Yes. The global `CLAUDE.md` is loaded by Claude Code regardless of interface — CLI, VS Code extension, JetBrains plugin, desktop app, or web.
+**Does this work in VS Code / JetBrains / Desktop / Web?**
+Yes. `~/.claude/CLAUDE.md` loads in every Claude Code interface.
 
-**Q: What about different projects in different directories?**
-A: The global `~/.claude/CLAUDE.md` loads in every directory. Project-specific memories can also be added to each project's own `.claude/` directory.
+**How much storage?**
+Minimal. 158 memorymesh memories = 68KB. 18 markdown files < 100KB. Even after months: < 1MB total.
 
-**Q: How much storage does this use?**
-A: Minimal. Memory files are small markdown files. Even after months of heavy use, expect < 1MB total.
+**Will Claude actually read the memory files?**
+Yes. `~/.claude/CLAUDE.md` is a first-class Claude Code feature — automatically loaded into every session's system prompt.
 
-**Q: Can I use this with other AI coding tools?**
-A: The architecture is Claude Code-specific (uses `CLAUDE.md` and Claude Code hooks), but the memory file format is plain markdown — portable to any system.
-
-**Q: Will Claude actually read these files?**
-A: Yes. `~/.claude/CLAUDE.md` is automatically loaded into every Claude Code session's system prompt. It's a first-class feature of Claude Code.
-
----
-
-## Contributing
-
-PRs welcome. Key areas:
-
-- **Memory retrieval strategies** — smarter ways to select which memories to load
-- **Session summarization** — better episodic compression
-- **Multi-agent memory sharing** — shared memory across team members
-- **Benchmarking** — test memory recall accuracy with synthetic conversations
-- **Integration with other memory backends** — Chroma, Pinecone, Weaviate
+**What if I have 10,000+ memories?**
+The consolidator keeps things clean. For massive scale, use the full [MemMachine server](https://github.com/MemMachine/MemMachine).
 
 ---
 
 ## Credits
 
-- **MemMachine Paper**: Wang, S., Yu, E., Love, O., Zhang, T., Wong, T., Scargall, S., & Fan, C. (2026). *MemMachine: A Ground-Truth-Preserving Memory System for Personalized AI Agents.* arXiv:2604.04853v1.
-- **Cognitive Science Foundations**: Tulving (1972) episodic-semantic distinction, Atkinson-Shiffrin (1968) multi-store model.
-- **Claude Code**: Anthropic's CLI for Claude — the runtime that makes this possible.
-
----
+- **MemMachine Paper**: Wang et al. (2026). *A Ground-Truth-Preserving Memory System for Personalized AI Agents.* arXiv:2604.04853v1.
+- **Cognitive Science**: Tulving (1972) episodic-semantic distinction, Atkinson-Shiffrin (1968) multi-store model.
+- **Claude Code**: Anthropic's CLI — the runtime that makes this possible.
+- **memorymesh**: Local SQLite + FTS5 memory engine.
+- **Mem0**: Semantic vector memory cloud.
 
 ## License
 
-Apache 2.0 — same as the original MemMachine.
+Apache 2.0
 
 ---
 
-*Your AI assistant just got a real memory.*
+*Your AI assistant just got a real memory. And it evolves.*
