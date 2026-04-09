@@ -1,27 +1,35 @@
 """
 memorymesh Local Client
 Direct SQLite access to the memorymesh database for batch operations.
+Returns empty results gracefully if memorymesh is not installed.
 """
 
 import sqlite3
 import json
 from datetime import datetime
-from config import MEMORYMESH_DB
+from config import MEMORYMESH_DB, MEMORYMESH_AVAILABLE
 
 
 def get_connection():
     """Get SQLite connection to memorymesh DB."""
+    if not MEMORYMESH_AVAILABLE:
+        return None
     return sqlite3.connect(str(MEMORYMESH_DB))
 
 
 def get_all_memories():
     """Fetch all memories from memorymesh."""
     conn = get_connection()
+    if not conn:
+        return []
     conn.row_factory = sqlite3.Row
-    cursor = conn.execute(
-        "SELECT id, content, importance, tags, source, created_at, accessed_at, access_count "
-        "FROM memories ORDER BY created_at DESC"
-    )
+    try:
+        cursor = conn.execute(
+            "SELECT * FROM memories ORDER BY created_at DESC"
+        )
+    except sqlite3.OperationalError:
+        conn.close()
+        return []
     memories = [dict(row) for row in cursor.fetchall()]
     conn.close()
     for m in memories:
@@ -36,6 +44,8 @@ def get_all_memories():
 def store_memory(content, importance=0.5, tags=None, source="agent"):
     """Store a new memory in memorymesh."""
     conn = get_connection()
+    if not conn:
+        return None
     now = datetime.utcnow().isoformat()
     tags_json = json.dumps(tags or [])
     conn.execute(
@@ -54,6 +64,8 @@ def store_memory(content, importance=0.5, tags=None, source="agent"):
 def update_importance(memory_id, new_importance):
     """Update importance score of a memory."""
     conn = get_connection()
+    if not conn:
+        return
     now = datetime.utcnow().isoformat()
     conn.execute(
         "UPDATE memories SET importance = ?, accessed_at = ? WHERE id = ?",
@@ -66,6 +78,8 @@ def update_importance(memory_id, new_importance):
 def delete_memory(memory_id):
     """Delete a memory by ID."""
     conn = get_connection()
+    if not conn:
+        return
     conn.execute("DELETE FROM memories WHERE id = ?", (memory_id,))
     conn.commit()
     conn.close()
@@ -74,6 +88,8 @@ def delete_memory(memory_id):
 def search(query, limit=10):
     """FTS5 search across memories."""
     conn = get_connection()
+    if not conn:
+        return []
     conn.row_factory = sqlite3.Row
     try:
         cursor = conn.execute(
@@ -97,6 +113,8 @@ def search(query, limit=10):
 def get_stats():
     """Get memory store statistics."""
     conn = get_connection()
+    if not conn:
+        return {"total": 0, "by_source": {}, "avg_importance": 0}
     cursor = conn.execute("SELECT COUNT(*) FROM memories")
     total = cursor.fetchone()[0]
     cursor = conn.execute("SELECT source, COUNT(*) FROM memories GROUP BY source")

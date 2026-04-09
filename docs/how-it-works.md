@@ -3,11 +3,12 @@
 ## The 30-Second Version
 
 1. A global config file (`~/.claude/CLAUDE.md`) loads in every Claude Code session
-2. It tells Claude to read your memory files before responding
-3. Claude remembers who you are, what you've been working on, and how you like to work
+2. It queries up to 3 memory layers (memorymesh, Mem0, markdown) before responding
+3. Claude welcomes you naturally with context from past sessions
 4. At the end of each session, Claude writes a summary for next time
+5. Overnight, 5 autonomous agents clean, analyze, and evolve your memory
 
-That's it. No servers, no databases, no API keys.
+The base install needs no servers, no databases, no API keys. Optional layers add more power.
 
 ## The 5-Minute Version
 

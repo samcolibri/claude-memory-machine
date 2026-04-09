@@ -219,6 +219,18 @@ sed -e "s|{{MEMORY_DIR}}|${MEMORY_DIR}|g" \
 echo -e "  ${GREEN}Global CLAUDE.md installed at ~/.claude/CLAUDE.md${NC}"
 echo -e "  ${GREEN}This will load in EVERY Claude Code session, in any directory.${NC}"
 
+# Install Level 3 + Level 4 agents
+AGENTS_DEST="$CLAUDE_DIR/memory-agents"
+if [ -d "$SCRIPT_DIR/agents" ]; then
+    mkdir -p "$AGENTS_DEST/logs"
+    cp "$SCRIPT_DIR/agents/"*.py "$AGENTS_DEST/" 2>/dev/null || true
+    cp "$SCRIPT_DIR/agents/install_cron.sh" "$AGENTS_DEST/" 2>/dev/null || true
+    chmod +x "$AGENTS_DEST/install_cron.sh" 2>/dev/null || true
+    echo -e "  ${GREEN}Level 3 + 4 agents installed at $AGENTS_DEST${NC}"
+    echo -e "  ${CYAN}  Run 'python3 $AGENTS_DEST/config.py' to verify agent config${NC}"
+    echo -e "  ${CYAN}  Run 'bash $AGENTS_DEST/install_cron.sh' to schedule agents${NC}"
+fi
+
 # ============================================================================
 # Configure hooks (optional Mem0)
 # ============================================================================
@@ -354,14 +366,19 @@ if [ $ERRORS -eq 0 ]; then
     echo "  ║   Claude now has a real memory.                            ║"
     echo "  ║   Open any new Claude Code session to experience it.       ║"
     echo "  ║                                                            ║"
-    echo "  ║   Memory architecture:                                     ║"
-    echo "  ║     Tier 1 (STM):      episodic_last_session.md           ║"
-    echo "  ║     Tier 2 (Episodic): episodic_sessions.md               ║"
-    echo "  ║     Tier 3 (Profile):  user_*.md, feedback_*.md, etc.     ║"
+    echo "  ║   Memory layers:                                           ║"
+    echo "  ║     Layer 1: memorymesh (local FTS5, if installed)         ║"
+    echo "  ║     Layer 2: Mem0 Cloud (semantic, if configured)          ║"
+    echo "  ║     Layer 3: Local Markdown (always active)                ║"
     echo "  ║                                                            ║"
-    echo "  ║   Ground truth preservation: ACTIVE                       ║"
-    echo "  ║   Contextualized retrieval:  ACTIVE                       ║"
-    echo "  ║   Cross-directory memory:    ACTIVE                       ║"
+    echo "  ║   Agents installed (run install_cron.sh to schedule):      ║"
+    echo "  ║     L3: Consolidator, Pattern Detector, Daily Briefing    ║"
+    echo "  ║     L4: Digital Twin, Causal Tracker                      ║"
+    echo "  ║                                                            ║"
+    echo "  ║   Next steps:                                              ║"
+    echo "  ║     1. Open a new Claude Code session and say 'hi'        ║"
+    echo "  ║     2. python3 ~/.claude/memory-agents/config.py          ║"
+    echo "  ║     3. bash ~/.claude/memory-agents/install_cron.sh       ║"
     echo "  ║                                                            ║"
     echo "  ╚══════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"

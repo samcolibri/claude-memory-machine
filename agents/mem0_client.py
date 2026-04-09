@@ -5,11 +5,13 @@ Wraps the REST API for memory operations.
 
 import json
 import urllib.request
-from config import MEM0_API_KEY, MEM0_USER_ID, MEM0_BASE_URL
+from config import MEM0_API_KEY, MEM0_USER_ID, MEM0_BASE_URL, MEM0_AVAILABLE
 
 
 def _request(method, path, data=None):
     """Make an authenticated request to Mem0 API."""
+    if not MEM0_AVAILABLE:
+        return None
     url = f"{MEM0_BASE_URL}{path}"
     headers = {
         "Authorization": f"Token {MEM0_API_KEY}",
